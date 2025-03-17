@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const RecipeListScreen = ({ navigation }) => {
@@ -50,7 +50,20 @@ const RecipeListScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Yemek Tarifleri</Text>
+            {/* Başlık ve Geri Butonu */}
+            <View style={styles.header}>
+                <TouchableOpacity 
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
+                >
+                    <View style={styles.backButtonInner}>
+                        <Text style={styles.backButtonArrow}>←</Text>
+                        <Text style={styles.backButtonText}>Geri</Text>
+                    </View>
+                </TouchableOpacity>
+                <Text style={styles.title}>Yemek Tarifleri</Text>
+                <View style={styles.spacer} />
+            </View>
 
             {/* Yeni Tarif Ekle Butonu */}
             <TouchableOpacity
@@ -60,8 +73,16 @@ const RecipeListScreen = ({ navigation }) => {
                 <Text style={styles.addRecipeText}>+ Yeni Tarif Ekle</Text>
             </TouchableOpacity>
 
-            {/* Kategori Butonları */}
-            <View style={styles.categoryContainer}>
+            {/* Kategori Başlığı */}
+            <Text style={styles.sectionTitle}>Kategoriler</Text>
+
+            {/* Kategori Butonları - Yatay ScrollView ile */}
+            <ScrollView 
+                horizontal
+                showsHorizontalScrollIndicator={true}
+                style={styles.categoryScrollView}
+                contentContainerStyle={styles.categoryScrollContent}
+            >
                 {categories.map(category => (
                     <TouchableOpacity
                         key={category}
@@ -73,7 +94,7 @@ const RecipeListScreen = ({ navigation }) => {
                         </Text>
                     </TouchableOpacity>
                 ))}
-            </View>
+            </ScrollView>
 
             {/* Yükleniyor göstergesi */}
             {loading ? (
@@ -106,22 +127,93 @@ const styles = StyleSheet.create({
         padding: 20,
         backgroundColor: '#D2B48C',
     },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 15,
+        paddingTop: 10,
+    },
+    backButton: {
+        backgroundColor: '#8D6E63',
+        borderRadius: 15,
+        padding: 6,
+        minWidth: 65,
+    },
+    backButtonInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    backButtonArrow: {
+        fontSize: 16,
+        color: '#FFF',
+        marginRight: 3,
+    },
+    backButtonText: {
+        fontSize: 14,
+        color: '#FFF',
+        fontWeight: '500',
+    },
+    spacer: {
+        width: 80,
+    },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        marginBottom: 10,
         textAlign: 'center',
+        color: '#5D4037',
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginTop: 10,
+        marginBottom: 10,
+        color: '#5D4037',
     },
     addRecipeButton: {
         backgroundColor: '#28a745',
-        padding: 10,
+        padding: 12,
         borderRadius: 8,
         alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 15,
     },
     addRecipeText: {
         color: '#fff',
         fontSize: 16,
+        fontWeight: 'bold',
+    },
+    categoryScrollView: {
+        marginBottom: 15,
+        height: 45,
+    },
+    categoryScrollContent: {
+        paddingHorizontal: 5,
+        alignItems: 'center',
+    },
+    categoryButton: {
+        backgroundColor: '#f8f8f8',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        marginHorizontal: 4,
+        height: 35,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#ddd',
+    },
+    selectedCategory: {
+        backgroundColor: '#8D6E63',
+        borderColor: '#8D6E63',
+    },
+    categoryText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#333',
+    },
+    selectedCategoryText: {
+        color: '#fff',
         fontWeight: 'bold',
     },
     recipeItem: {
@@ -137,6 +229,9 @@ const styles = StyleSheet.create({
         height: 80,
         borderRadius: 10,
         marginRight: 10,
+    },
+    recipeTextContainer: {
+        flex: 1,
     },
     recipeName: {
         fontSize: 18,

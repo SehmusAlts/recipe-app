@@ -52,7 +52,20 @@ const MyRecipesScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Benim Tariflerim</Text>
+            {/* Başlık ve Geri Butonu */}
+            <View style={styles.header}>
+                <TouchableOpacity 
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
+                >
+                    <View style={styles.backButtonInner}>
+                        <Text style={styles.backButtonArrow}>←</Text>
+                        <Text style={styles.backButtonText}>Geri</Text>
+                    </View>
+                </TouchableOpacity>
+                <Text style={styles.title}>Benim Tariflerim</Text>
+                <View style={styles.spacer} />
+            </View>
 
             {myRecipes.length === 0 ? (
                 <Text style={styles.emptyMessage}>Henüz bir tarif eklenmedi.</Text>
@@ -89,11 +102,42 @@ const styles = StyleSheet.create({
         padding: 20,
         backgroundColor: '#D2B48C',
     },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 15,
+        paddingTop: 10,
+    },
+    backButton: {
+        backgroundColor: '#8D6E63',
+        borderRadius: 15,
+        padding: 6,
+        minWidth: 65,
+    },
+    backButtonInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    backButtonArrow: {
+        fontSize: 16,
+        color: '#FFF',
+        marginRight: 3,
+    },
+    backButtonText: {
+        fontSize: 14,
+        color: '#FFF',
+        fontWeight: '500',
+    },
+    spacer: {
+        width: 65,
+    },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        marginBottom: 10,
         textAlign: 'center',
+        color: '#5D4037',
     },
     emptyMessage: {
         fontSize: 16,
