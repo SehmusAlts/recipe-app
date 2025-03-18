@@ -1,116 +1,56 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AddRecipeScreen = ({ navigation }) => {
-    const [name, setName] = useState('');
-    const [description, setDescription] = useState('');
+    const [recipeName, setRecipeName] = useState('');
+    const [ingredients, setIngredients] = useState('');
+    const [instructions, setInstructions] = useState('');
     const [category, setCategory] = useState('');
-    const [showCategoryModal, setShowCategoryModal] = useState(false);
-    const [allCategories, setAllCategories] = useState([
-        'Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack', 
-        'Appetizer', 'Side Dish', 'Beverage', 'Snacks'
-    ]);
+    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        // Mevcut kategorileri AsyncStorage'dan alabilirsiniz
-        const fetchCategories = async () => {
-            try {
-                const storedRecipes = await AsyncStorage.getItem('customRecipes');
-                if (storedRecipes) {
-                    const recipes = JSON.parse(storedRecipes);
-                    const customCategories = [...new Set(recipes.map(recipe => recipe.category).filter(Boolean))];
-                    
-                    // Tanımlanmış kategorilerle birleştir
-                    const mergedCategories = [...new Set([...allCategories, ...customCategories])];
-                    setAllCategories(mergedCategories);
-                }
-            } catch (error) {
-                console.log('Kategorileri alırken hata:', error);
-            }
-        };
-        
-        fetchCategories();
-    }, []);
-
-    const handleSaveRecipe = async () => {
-        const trimmedName = name.trim();
-        const trimmedDescription = description.trim();
-
-        if (!trimmedName || !trimmedDescription || !category) {
-            Alert.alert('Hata', 'Lütfen tüm alanları eksiksiz doldurun!');
+    const handleSubmit = async () => {
+        if (!recipeName || !ingredients || !instructions || !category) {
+            Alert.alert('Hata', 'Lütfen tüm alanları doldurun.');
             return;
         }
 
+        setLoading(true);
         try {
-            let storedRecipes = await AsyncStorage.getItem('customRecipes');
-            let recipesArray = storedRecipes ? JSON.parse(storedRecipes) : [];
-
-            const newRecipe = {
-                id: Date.now(),
-                name: trimmedName,
-                description: trimmedDescription,
-                category: category,
-                image: 'https://via.placeholder.com/150', // Varsayılan resim
-                isCustom: true
+            const recipeData = {
+                id: Date.now().toString(),
+                name: recipeName,
+                ingredients: ingredients.split('\n'),
+                instructions: instructions.split('\n'),
+                category,
+                createdAt: new Date().toISOString(),
             };
 
-            recipesArray.push(newRecipe);
-            await AsyncStorage.setItem('customRecipes', JSON.stringify(recipesArray));
+            // Mevcut tarifleri al
+            const existingRecipes = await AsyncStorage.getItem('recipes');
+            const recipes = existingRecipes ? JSON.parse(existingRecipes) : [];
+            
+            // Yeni tarifi ekle
+            recipes.unshift(recipeData);
+            
+            // Tarifleri kaydet
+            await AsyncStorage.setItem('recipes', JSON.stringify(recipes));
 
             Alert.alert('Başarılı', 'Tarif başarıyla eklendi!');
-            setName('');
-            setDescription('');
-            setCategory('');
             navigation.goBack();
         } catch (error) {
-            console.log('Tarif eklenirken hata oluştu:', error);
+            Alert.alert('Hata', 'Tarif eklenirken bir hata oluştu.');
+            console.error(error);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const renderCategoryModal = () => {
-        return (
-            <Modal
-                visible={showCategoryModal}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => setShowCategoryModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
-                        <Text style={styles.modalTitle}>Kategori Seçin</Text>
-                        <ScrollView style={styles.categoryList}>
-                            {allCategories.map((cat) => (
-                                <TouchableOpacity
-                                    key={cat}
-                                    style={styles.categoryItem}
-                                    onPress={() => {
-                                        setCategory(cat);
-                                        setShowCategoryModal(false);
-                                    }}
-                                >
-                                    <Text style={styles.categoryItemText}>{cat}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                        <TouchableOpacity 
-                            style={styles.closeButton}
-                            onPress={() => setShowCategoryModal(false)}
-                        >
-                            <Text style={styles.closeButtonText}>Kapat</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-        );
-    };
-
     return (
-        <View style={styles.container}>
-            {/* Başlık ve Geri Butonu */}
+        <ScrollView style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity 
-                    style={styles.backButton}
+                    style={styles.backButton} 
                     onPress={() => navigation.goBack()}
                 >
                     <View style={styles.backButtonInner}>
@@ -118,167 +58,132 @@ const AddRecipeScreen = ({ navigation }) => {
                         <Text style={styles.backButtonText}>Geri</Text>
                     </View>
                 </TouchableOpacity>
-                <Text style={styles.title}>Yeni Tarif Ekle</Text>
-                <View style={styles.spacer} />
+                <Text style={styles.headerTitle}>Yeni Tarif Ekle</Text>
             </View>
 
-            <TextInput
-                style={styles.input}
-                placeholder="Tarif Adı"
-                value={name}
-                onChangeText={setName}
-            />
-            <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Tarif Açıklaması"
-                value={description}
-                onChangeText={setDescription}
-                multiline
-                numberOfLines={4}
-            />
-            
-            {/* Kategori Seçme Butonu */}
-            <TouchableOpacity 
-                style={styles.categorySelector} 
-                onPress={() => setShowCategoryModal(true)}
-            >
-                <Text style={category ? styles.categoryText : styles.placeholderText}>
-                    {category || "Kategori Seçin"}
-                </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveRecipe}>
-                <Text style={styles.saveButtonText}>Kaydet</Text>
-            </TouchableOpacity>
-            
-            {renderCategoryModal()}
-        </View>
+            <View style={styles.form}>
+                <Text style={styles.label}>Tarif Adı</Text>
+                <TextInput
+                    style={styles.input}
+                    value={recipeName}
+                    onChangeText={setRecipeName}
+                    placeholder="Tarif adını girin"
+                />
+
+                <Text style={styles.label}>Kategori</Text>
+                <TextInput
+                    style={styles.input}
+                    value={category}
+                    onChangeText={setCategory}
+                    placeholder="Kategori seçin"
+                />
+
+                <Text style={styles.label}>Malzemeler</Text>
+                <TextInput
+                    style={[styles.input, styles.multilineInput]}
+                    value={ingredients}
+                    onChangeText={setIngredients}
+                    placeholder="Her malzemeyi yeni satıra yazın"
+                    multiline
+                    numberOfLines={4}
+                />
+
+                <Text style={styles.label}>Hazırlanışı</Text>
+                <TextInput
+                    style={[styles.input, styles.multilineInput]}
+                    value={instructions}
+                    onChangeText={setInstructions}
+                    placeholder="Hazırlanış adımlarını yeni satırlara yazın"
+                    multiline
+                    numberOfLines={6}
+                />
+
+                <TouchableOpacity 
+                    style={[styles.submitButton, loading && styles.disabledButton]}
+                    onPress={handleSubmit}
+                    disabled={loading}
+                >
+                    <Text style={styles.submitButtonText}>
+                        {loading ? 'Ekleniyor...' : 'Tarifi Ekle'}
+                    </Text>
+                </TouchableOpacity>
+            </View>
+        </ScrollView>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
-        backgroundColor: '#D2B48C',
+        backgroundColor: '#fff',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 20,
-        paddingTop: 10,
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
     },
     backButton: {
-        backgroundColor: '#8D6E63',
-        borderRadius: 15,
-        padding: 6,
-        minWidth: 65,
+        marginRight: 16,
     },
     backButtonInner: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        backgroundColor: '#8D6E63',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
     },
     backButtonArrow: {
-        fontSize: 16,
-        color: '#FFF',
-        marginRight: 3,
+        color: '#fff',
+        fontSize: 18,
+        marginRight: 4,
     },
     backButtonText: {
-        fontSize: 14,
-        color: '#FFF',
-        fontWeight: '500',
+        color: '#fff',
+        fontSize: 16,
     },
-    spacer: {
-        width: 80,
-    },
-    title: {
-        fontSize: 24,
+    headerTitle: {
+        fontSize: 20,
         fontWeight: 'bold',
-        textAlign: 'center',
-        color: '#5D4037',
+        color: '#333',
+    },
+    form: {
+        padding: 16,
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8,
+        color: '#333',
     },
     input: {
         borderWidth: 1,
-        borderColor: '#ccc',
+        borderColor: '#ddd',
         borderRadius: 8,
-        padding: 10,
-        marginBottom: 15,
-        backgroundColor: '#fff',
+        padding: 12,
+        marginBottom: 16,
+        fontSize: 16,
     },
-    textArea: {
-        height: 100,
+    multilineInput: {
+        height: 120,
         textAlignVertical: 'top',
     },
-    categorySelector: {
-        borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 8,
-        padding: 15,
-        marginBottom: 15,
-        backgroundColor: '#fff',
-    },
-    categoryText: {
-        fontSize: 16,
-        color: '#000',
-    },
-    placeholderText: {
-        fontSize: 16,
-        color: '#aaa',
-    },
-    saveButton: {
-        backgroundColor: '#007bff',
-        padding: 15,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 10,
-    },
-    saveButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalContainer: {
-        width: '80%',
-        backgroundColor: '#fff',
-        borderRadius: 10,
-        padding: 20,
-        maxHeight: '70%',
-    },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 15,
-        textAlign: 'center',
-    },
-    categoryList: {
-        marginBottom: 15,
-    },
-    categoryItem: {
-        paddingVertical: 12,
-        paddingHorizontal: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    categoryItemText: {
-        fontSize: 16,
-    },
-    closeButton: {
+    submitButton: {
         backgroundColor: '#8D6E63',
-        padding: 12,
+        padding: 16,
         borderRadius: 8,
         alignItems: 'center',
+        marginTop: 16,
     },
-    closeButtonText: {
+    disabledButton: {
+        opacity: 0.7,
+    },
+    submitButtonText: {
         color: '#fff',
-        fontWeight: 'bold',
+        fontSize: 16,
+        fontWeight: '600',
     },
 });
 

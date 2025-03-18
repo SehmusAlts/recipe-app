@@ -1,61 +1,56 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MyRecipesScreen = ({ navigation }) => {
-    const [myRecipes, setMyRecipes] = useState([]);
+    const [recipes, setRecipes] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const fetchMyRecipes = async () => {
+    const loadRecipes = async () => {
         try {
-            let storedRecipes = await AsyncStorage.getItem('customRecipes');
-            let recipesArray = storedRecipes ? JSON.parse(storedRecipes) : [];
-            
-            // Geçersiz tarifleri filtrele
-            recipesArray = recipesArray.filter(recipe => recipe && recipe.name);
-
-            setMyRecipes(recipesArray);
+            const recipesData = await AsyncStorage.getItem('recipes');
+            if (recipesData) {
+                const allRecipes = JSON.parse(recipesData);
+                setRecipes(allRecipes);
+            }
         } catch (error) {
-            console.log('Kendi tariflerini çekerken hata oluştu:', error);
+            console.error('Tarifler yüklenirken hata:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchMyRecipes();
-        const unsubscribe = navigation.addListener('focus', fetchMyRecipes);
-        return unsubscribe;
-    }, [navigation]);
+        loadRecipes();
+    }, []);
 
-    // Tarif Silme
-    const deleteRecipe = async (id) => {
-        Alert.alert(
-            "Tarifi Sil",
-            "Bu tarifi silmek istediğinize emin misiniz?",
-            [
-                { text: "İptal", style: "cancel" },
-                {
-                    text: "Sil",
-                    onPress: async () => {
-                        try {
-                            let updatedRecipes = myRecipes.filter(recipe => recipe.id !== id);
-                            await AsyncStorage.setItem('customRecipes', JSON.stringify(updatedRecipes));
-                            setMyRecipes(updatedRecipes);
-                            Alert.alert("Başarılı", "Tarif silindi!");
-                        } catch (error) {
-                            console.log("Tarif silinirken hata oluştu:", error);
-                        }
-                    },
-                    style: "destructive",
-                }
-            ]
-        );
+    const handleDeleteRecipe = async (recipeId) => {
+        try {
+            const recipesData = await AsyncStorage.getItem('recipes');
+            if (recipesData) {
+                const allRecipes = JSON.parse(recipesData);
+                const updatedRecipes = allRecipes.filter(recipe => recipe.id !== recipeId);
+                await AsyncStorage.setItem('recipes', JSON.stringify(updatedRecipes));
+                setRecipes(updatedRecipes);
+            }
+        } catch (error) {
+            console.error('Tarif silinirken hata:', error);
+        }
     };
+
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#0000ff" />
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
-            {/* Başlık ve Geri Butonu */}
             <View style={styles.header}>
                 <TouchableOpacity 
-                    style={styles.backButton}
+                    style={styles.backButton} 
                     onPress={() => navigation.goBack()}
                 >
                     <View style={styles.backButtonInner}>
@@ -63,35 +58,47 @@ const MyRecipesScreen = ({ navigation }) => {
                         <Text style={styles.backButtonText}>Geri</Text>
                     </View>
                 </TouchableOpacity>
-                <Text style={styles.title}>Benim Tariflerim</Text>
-                <View style={styles.spacer} />
+                <Text style={styles.headerTitle}>Tariflerim</Text>
             </View>
 
-            {myRecipes.length === 0 ? (
-                <Text style={styles.emptyMessage}>Henüz bir tarif eklenmedi.</Text>
-            ) : (
-                <FlatList
-                    data={myRecipes}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={({ item }) => (
-                        <View style={styles.recipeItem}>
-                            <TouchableOpacity 
-                                onPress={() => navigation.navigate('RecipeDetail', { recipe: item })}
-                                style={styles.recipeContent}
-                            >
-                                <Image source={{ uri: item.image }} style={styles.recipeImage} />
-                                <View style={styles.recipeTextContainer}>
-                                    <Text style={styles.recipeName}>{item.name}</Text>
-                                    {item.description ? <Text>{item.description}</Text> : null}
-                                </View>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => deleteRecipe(item.id)} style={styles.deleteButton}>
-                                <Text style={styles.deleteButtonText}>Sil</Text>
-                            </TouchableOpacity>
+            <ScrollView style={styles.recipeList}>
+                {recipes.length === 0 ? (
+                    <Text style={styles.noRecipes}>
+                        Henüz tarif eklemediniz.
+                    </Text>
+                ) : (
+                    recipes.map(recipe => (
+                        <View key={recipe.id} style={styles.recipeCard}>
+                            <Text style={styles.recipeName}>{recipe.name}</Text>
+                            <Text style={styles.recipeCategory}>{recipe.category}</Text>
+                            <Text style={styles.recipeDate}>
+                                {new Date(recipe.createdAt).toLocaleDateString('tr-TR')}
+                            </Text>
+                            <View style={styles.buttonContainer}>
+                                <TouchableOpacity
+                                    style={styles.editButton}
+                                    onPress={() => navigation.navigate('EditRecipe', { recipe })}
+                                >
+                                    <Text style={styles.buttonText}>Düzenle</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.deleteButton}
+                                    onPress={() => handleDeleteRecipe(recipe.id)}
+                                >
+                                    <Text style={styles.buttonText}>Sil</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                    )}
-                />
-            )}
+                    ))
+                )}
+            </ScrollView>
+
+            <TouchableOpacity 
+                style={styles.addButton}
+                onPress={() => navigation.navigate('AddRecipe')}
+            >
+                <Text style={styles.addButtonText}>+ Yeni Tarif Ekle</Text>
+            </TouchableOpacity>
         </View>
     );
 };
@@ -99,86 +106,124 @@ const MyRecipesScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
-        backgroundColor: '#D2B48C',
+        backgroundColor: '#fff',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 15,
-        paddingTop: 10,
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
     },
     backButton: {
-        backgroundColor: '#8D6E63',
-        borderRadius: 15,
-        padding: 6,
-        minWidth: 65,
+        marginRight: 16,
     },
     backButtonInner: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        backgroundColor: '#8D6E63',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
     },
     backButtonArrow: {
-        fontSize: 16,
-        color: '#FFF',
-        marginRight: 3,
+        color: '#fff',
+        fontSize: 18,
+        marginRight: 4,
     },
     backButtonText: {
-        fontSize: 14,
-        color: '#FFF',
-        fontWeight: '500',
-    },
-    spacer: {
-        width: 65,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        color: '#5D4037',
-    },
-    emptyMessage: {
+        color: '#fff',
         fontSize: 16,
-        color: '#777',
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    recipeList: {
+        flex: 1,
+        padding: 16,
+    },
+    noRecipes: {
+        fontSize: 16,
+        color: '#666',
         textAlign: 'center',
-        marginTop: 20,
+        marginBottom: 16,
     },
-    recipeItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 15,
-        marginVertical: 8,
-        backgroundColor: '#f8f8f8',
-        borderRadius: 8,
-        justifyContent: 'space-between',
-    },
-    recipeContent: {
-        flexDirection: 'row',
-        flex: 1,
-    },
-    recipeImage: {
-        width: 80,
-        height: 80,
-        borderRadius: 10,
-        marginRight: 10,
-    },
-    recipeTextContainer: {
-        flex: 1,
+    recipeCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     recipeName: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 8,
     },
-    deleteButton: {
-        backgroundColor: '#ff4747',
-        padding: 10,
+    recipeCategory: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 4,
+    },
+    recipeDate: {
+        fontSize: 12,
+        color: '#999',
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 8,
+    },
+    editButton: {
+        backgroundColor: '#8D6E63',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
         borderRadius: 8,
     },
-    deleteButtonText: {
+    deleteButton: {
+        backgroundColor: '#ff3b30',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+    },
+    buttonText: {
         color: '#fff',
-        fontWeight: 'bold',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    addButton: {
+        position: 'absolute',
+        right: 20,
+        bottom: 20,
+        width: 120,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#8D6E63',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+    },
+    addButtonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
     },
 });
 

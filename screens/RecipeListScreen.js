@@ -1,59 +1,75 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const RecipeListScreen = ({ navigation }) => {
     const [recipes, setRecipes] = useState([]);
-    const [categories, setCategories] = useState(['Hepsi']);
-    const [selectedCategory, setSelectedCategory] = useState('Hepsi');
     const [loading, setLoading] = useState(true);
+    const [selectedCategory, setSelectedCategory] = useState('');
+    const [categories, setCategories] = useState([]);
+
+    const loadRecipes = async () => {
+        try {
+            const recipesData = await AsyncStorage.getItem('recipes');
+            if (recipesData) {
+                const allRecipes = JSON.parse(recipesData);
+                setRecipes(allRecipes);
+                const uniqueCategories = [...new Set(allRecipes.map(recipe => recipe.category))];
+                setCategories(uniqueCategories);
+            }
+        } catch (error) {
+            console.error('Tarifler yüklenirken hata:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchRecipes = async () => {
-            try {
-                const response = await fetch('https://dummyjson.com/recipes');
-                const data = await response.json();
-
-                // AsyncStorage'dan manuel eklenen tarifleri al
-                let storedRecipes = await AsyncStorage.getItem('customRecipes');
-                let customRecipes = storedRecipes ? JSON.parse(storedRecipes) : [];
-
-                // Geçersiz veri olup olmadığını kontrol et
-                customRecipes = customRecipes.filter(recipe => recipe && recipe.name);
-
-                // API ve manuel tarifleri birleştir
-                setRecipes([...customRecipes, ...data.recipes]);
-
-                // Kategorileri API ve manuel eklenen tariflerden al
-                const uniqueCategories = [...new Set([
-                    ...customRecipes.map(recipe => recipe.category).filter(Boolean),
-                    ...data.recipes.flatMap(recipe => recipe.mealType || [])
-                ])];
-
-                setCategories(['Hepsi', ...uniqueCategories]);
-            } catch (error) {
-                console.log('API Hatası:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchRecipes();
+        loadRecipes();
     }, []);
 
-    const filteredRecipes = selectedCategory === 'Hepsi'
-        ? recipes
-        : recipes.filter(recipe =>
-            (recipe.mealType && recipe.mealType.some(type => type.toLowerCase() === selectedCategory.toLowerCase())) ||
-            (recipe.category && recipe.category.toLowerCase() === selectedCategory.toLowerCase())
+    const handleFavorite = async (recipeId) => {
+        try {
+            const favoritesData = await AsyncStorage.getItem('favorites');
+            const favoriteIds = favoritesData ? JSON.parse(favoritesData) : [];
+            const isFavorite = favoriteIds.includes(recipeId);
+            const updatedFavorites = isFavorite ? 
+                favoriteIds.filter(id => id !== recipeId) : 
+                [...favoriteIds, recipeId];
+            await AsyncStorage.setItem('favorites', JSON.stringify(updatedFavorites));
+        } catch (error) {
+            console.error('Favori güncellenirken hata:', error);
+        }
+    };
+
+    const handleRate = async (recipeId, rating) => {
+        try {
+            const ratingsData = await AsyncStorage.getItem('ratings');
+            const ratings = ratingsData ? JSON.parse(ratingsData) : {};
+            ratings[recipeId] = rating;
+            await AsyncStorage.setItem('ratings', JSON.stringify(ratings));
+        } catch (error) {
+            console.error('Puanlama güncellenirken hata:', error);
+        }
+    };
+
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#0000ff" />
+            </View>
         );
+    }
+
+    const filteredRecipes = selectedCategory ? 
+        recipes.filter(recipe => recipe.category === selectedCategory) : 
+        recipes;
 
     return (
         <View style={styles.container}>
-            {/* Başlık ve Geri Butonu */}
             <View style={styles.header}>
                 <TouchableOpacity 
-                    style={styles.backButton}
+                    style={styles.backButton} 
                     onPress={() => navigation.goBack()}
                 >
                     <View style={styles.backButtonInner}>
@@ -61,62 +77,58 @@ const RecipeListScreen = ({ navigation }) => {
                         <Text style={styles.backButtonText}>Geri</Text>
                     </View>
                 </TouchableOpacity>
-                <Text style={styles.title}>Yemek Tarifleri</Text>
-                <View style={styles.spacer} />
+                <Text style={styles.headerTitle}>Tarif Listesi</Text>
             </View>
 
-            {/* Yeni Tarif Ekle Butonu */}
-            <TouchableOpacity
-                style={styles.addRecipeButton}
-                onPress={() => navigation.navigate('AddRecipe')}
-            >
-                <Text style={styles.addRecipeText}>+ Yeni Tarif Ekle</Text>
-            </TouchableOpacity>
-
-            {/* Kategori Başlığı */}
-            <Text style={styles.sectionTitle}>Kategoriler</Text>
-
-            {/* Kategori Butonları - Yatay ScrollView ile */}
-            <ScrollView 
-                horizontal
-                showsHorizontalScrollIndicator={true}
-                style={styles.categoryScrollView}
-                contentContainerStyle={styles.categoryScrollContent}
-            >
+            <ScrollView horizontal style={styles.categoryList}>
+                <TouchableOpacity 
+                    style={[styles.categoryButton, !selectedCategory && styles.selectedCategoryButton]} 
+                    onPress={() => setSelectedCategory('')}
+                >
+                    <Text style={styles.categoryButtonText}>Tümü</Text>
+                </TouchableOpacity>
                 {categories.map(category => (
-                    <TouchableOpacity
-                        key={category}
-                        style={[styles.categoryButton, selectedCategory === category && styles.selectedCategory]}
+                    <TouchableOpacity 
+                        key={category} 
+                        style={[styles.categoryButton, selectedCategory === category && styles.selectedCategoryButton]} 
                         onPress={() => setSelectedCategory(category)}
                     >
-                        <Text style={[styles.categoryText, selectedCategory === category && styles.selectedCategoryText]}>
-                            {category}
-                        </Text>
+                        <Text style={styles.categoryButtonText}>{category}</Text>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
 
-            {/* Yükleniyor göstergesi */}
-            {loading ? (
-                <ActivityIndicator size="large" color="#007bff" />
-            ) : (
-                <FlatList
-                    data={filteredRecipes}
-                    keyExtractor={(item) => item.id ? item.id.toString() : Math.random().toString()}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity
-                            style={styles.recipeItem}
-                            onPress={() => navigation.navigate('RecipeDetail', { recipe: item })}
-                        >
-                            <Image source={{ uri: item.image }} style={styles.recipeImage} />
-                            <View style={styles.recipeTextContainer}>
-                                <Text style={styles.recipeName}>{item.name}</Text>
-                                {item.description ? <Text>{item.description}</Text> : null}
+            <ScrollView style={styles.recipeList}>
+                {filteredRecipes.length === 0 ? (
+                    <Text style={styles.noRecipes}>
+                        Bu kategoride tarif bulunmuyor.
+                    </Text>
+                ) : (
+                    filteredRecipes.map(recipe => (
+                        <View key={recipe.id} style={styles.recipeCard}>
+                            <Text style={styles.recipeName}>{recipe.name}</Text>
+                            <Text style={styles.recipeCategory}>{recipe.category}</Text>
+                            <Text style={styles.recipeDate}>
+                                {new Date(recipe.createdAt).toLocaleDateString('tr-TR')}
+                            </Text>
+                            <View style={styles.buttonContainer}>
+                                <TouchableOpacity
+                                    style={styles.favoriteButton}
+                                    onPress={() => handleFavorite(recipe.id)}
+                                >
+                                    <Text style={styles.buttonText}>Favori</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.rateButton}
+                                    onPress={() => handleRate(recipe.id, 5)}
+                                >
+                                    <Text style={styles.buttonText}>Puanla</Text>
+                                </TouchableOpacity>
                             </View>
-                        </TouchableOpacity>
-                    )}
-                />
-            )}
+                        </View>
+                    ))
+                )}
+            </ScrollView>
         </View>
     );
 };
@@ -124,118 +136,122 @@ const RecipeListScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
-        backgroundColor: '#D2B48C',
+        backgroundColor: '#fff',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 15,
-        paddingTop: 10,
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
     },
     backButton: {
-        backgroundColor: '#8D6E63',
-        borderRadius: 15,
-        padding: 6,
-        minWidth: 65,
+        marginRight: 16,
     },
     backButtonInner: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        backgroundColor: '#8D6E63',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
     },
     backButtonArrow: {
-        fontSize: 16,
-        color: '#FFF',
-        marginRight: 3,
+        color: '#fff',
+        fontSize: 18,
+        marginRight: 4,
     },
     backButtonText: {
-        fontSize: 14,
-        color: '#FFF',
-        fontWeight: '500',
-    },
-    spacer: {
-        width: 80,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        color: '#5D4037',
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginTop: 10,
-        marginBottom: 10,
-        color: '#5D4037',
-    },
-    addRecipeButton: {
-        backgroundColor: '#28a745',
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginBottom: 15,
-    },
-    addRecipeText: {
         color: '#fff',
         fontSize: 16,
+    },
+    headerTitle: {
+        fontSize: 20,
         fontWeight: 'bold',
-    },
-    categoryScrollView: {
-        marginBottom: 15,
-        height: 45,
-    },
-    categoryScrollContent: {
-        paddingHorizontal: 5,
-        alignItems: 'center',
-    },
-    categoryButton: {
-        backgroundColor: '#f8f8f8',
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 20,
-        marginHorizontal: 4,
-        height: 35,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#ddd',
-    },
-    selectedCategory: {
-        backgroundColor: '#8D6E63',
-        borderColor: '#8D6E63',
-    },
-    categoryText: {
-        fontSize: 14,
-        fontWeight: '500',
         color: '#333',
     },
-    selectedCategoryText: {
-        color: '#fff',
-        fontWeight: 'bold',
+    categoryList: {
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
     },
-    recipeItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 15,
-        marginVertical: 8,
-        backgroundColor: '#f8f8f8',
-        borderRadius: 8,
+    categoryButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+        marginRight: 8,
     },
-    recipeImage: {
-        width: 80,
-        height: 80,
-        borderRadius: 10,
-        marginRight: 10,
+    selectedCategoryButton: {
+        backgroundColor: '#8D6E63',
     },
-    recipeTextContainer: {
+    categoryButtonText: {
+        color: '#666',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    recipeList: {
         flex: 1,
+        padding: 16,
+    },
+    recipeCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     recipeName: {
         fontSize: 18,
+        fontWeight: '600',
+        color: '#333',
+        flex: 1,
+    },
+    recipeCategory: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 8,
+    },
+    recipeDate: {
+        fontSize: 12,
+        color: '#666',
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    favoriteButton: {
+        padding: 8,
+        backgroundColor: '#FFD700',
+        borderRadius: 8,
+    },
+    rateButton: {
+        padding: 8,
+        backgroundColor: '#8D6E63',
+        borderRadius: 8,
+    },
+    buttonText: {
+        fontSize: 16,
         fontWeight: 'bold',
+        color: '#fff',
+    },
+    noRecipes: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        color: '#666',
     },
 });
 
