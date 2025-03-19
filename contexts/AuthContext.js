@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -9,104 +10,51 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Uygulama başladığında kullanıcı durumunu kontrol et
-        checkUser();
-    }, []);
-
-    const checkUser = async () => {
-        try {
-            const userData = await AsyncStorage.getItem('user');
-            if (userData) {
-                setUser(JSON.parse(userData));
+        const unsubscribe = auth().onAuthStateChanged(async (user) => {
+            if (user) {
+                const userDoc = await firestore().collection('users').doc(user.uid).get();
+                if (!userDoc.exists) {
+                    await firestore().collection('users').doc(user.uid).set({
+                        email: user.email,
+                        createdAt: firestore.FieldValue.serverTimestamp(),
+                    });
+                }
             }
-        } catch (error) {
-            console.error('Kullanıcı durumu kontrol edilirken hata:', error);
-        }
-    };
+            setUser(user);
+            setLoading(false);
+        });
+
+        return unsubscribe;
+    }, []);
 
     const signIn = async (email, password) => {
         try {
-            // Kayıtlı kullanıcıları kontrol et
-            const usersData = await AsyncStorage.getItem('users');
-            if (!usersData) {
-                console.log('Kayıtlı kullanıcı bulunamadı');
-                return false;
-            }
-
-            const users = JSON.parse(usersData);
-            if (!Array.isArray(users)) {
-                console.log('Geçersiz kullanıcı verisi');
-                return false;
-            }
-
-            // Kullanıcı var mı ve şifre doğru mu kontrol et
-            const existingUser = users.find(u => u.email === email && u.password === password);
-            if (!existingUser) {
-                console.log('E-posta veya şifre hatalı');
-                return false;
-            }
-
-            // Kullanıcıyı oturum açmış olarak ayarla
-            await AsyncStorage.setItem('user', JSON.stringify(existingUser));
-            setUser(existingUser);
-            console.log('Giriş başarılı');
-            return true;
+            const result = await auth().signInWithEmailAndPassword(email, password);
+            return { success: true, user: result.user };
         } catch (error) {
-            console.error('Giriş yapılırken hata:', error);
-            return false;
+            return { success: false, error: error.message };
         }
     };
 
     const signUp = async (email, password) => {
         try {
-            // Kayıtlı kullanıcıları al
-            let users = [];
-            const usersData = await AsyncStorage.getItem('users');
-            
-            if (usersData) {
-                users = JSON.parse(usersData);
-                if (!Array.isArray(users)) {
-                    users = [];
-                }
-            }
-
-            // E-posta adresi zaten kayıtlı mı kontrol et
-            if (users.some(u => u.email === email)) {
-                console.log('Bu e-posta adresi zaten kullanımda');
-                return false;
-            }
-
-            // Yeni kullanıcı oluştur
-            const newUser = {
-                email,
-                password, // Şifreyi de saklıyoruz
-                id: Date.now().toString(),
-                createdAt: new Date().toISOString()
-            };
-            
-            // Kullanıcıyı kaydet
-            users.push(newUser);
-            await AsyncStorage.setItem('users', JSON.stringify(users));
-            
-            // Kullanıcıyı oturum açmış olarak ayarla
-            await AsyncStorage.setItem('user', JSON.stringify(newUser));
-            setUser(newUser);
-            
-            console.log('Kayıt başarılı');
-            return true;
+            const result = await auth().createUserWithEmailAndPassword(email, password);
+            await firestore().collection('users').doc(result.user.uid).set({
+                email: email,
+                createdAt: firestore.FieldValue.serverTimestamp(),
+            });
+            return { success: true, user: result.user };
         } catch (error) {
-            console.error('Kayıt olurken hata:', error);
-            return false;
+            return { success: false, error: error.message };
         }
     };
 
     const signOut = async () => {
         try {
-            await AsyncStorage.removeItem('user');
-            setUser(null);
-            console.log('Çıkış başarılı');
+            await auth().signOut();
             return true;
         } catch (error) {
             console.error('Çıkış yapılırken hata:', error);
@@ -116,14 +64,15 @@ export const AuthProvider = ({ children }) => {
 
     const value = {
         user,
+        loading,
         signIn,
         signUp,
-        signOut
+        signOut,
     };
 
     return (
         <AuthContext.Provider value={value}>
-            {children}
+            {!loading && children}
         </AuthContext.Provider>
     );
 }; 

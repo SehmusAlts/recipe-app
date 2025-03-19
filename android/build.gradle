@@ -2,15 +2,16 @@
 
 buildscript {
     ext {
-        buildToolsVersion = "33.0.0"
-        minSdkVersion = 21
-        compileSdkVersion = 33
-        targetSdkVersion = 33
+        buildToolsVersion = "34.0.0"
+        minSdkVersion = 24
+        compileSdkVersion = 34
+        targetSdkVersion = 34
         kotlinVersion = findProperty('android.kotlinVersion') ?: '1.9.25'
-        googlePlayServicesVersion = "+" // Use the latest version
+        googlePlayServicesVersion = "+"
         firebaseBomVersion = "32.7.1"
 
         ndkVersion = "26.1.10909125"
+        composeCompilerVersion = "1.5.9"
     }
     repositories {
         google()
@@ -20,6 +21,8 @@ buildscript {
         classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
         classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}")
+        classpath("androidx.compose.compiler:compiler:${composeCompilerVersion}")
         classpath 'com.google.gms:google-services:4.4.0'
     }
 }

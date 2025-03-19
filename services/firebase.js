@@ -1,4 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import firestore from '@react-native-firebase/firestore';
+import auth from '@react-native-firebase/auth';
 
 // Mock veri
 let mockRecipes = [];
@@ -41,138 +42,156 @@ const getCurrentUser = async () => {
   }
 };
 
-// Tarif Ekleme
+// Yeni tarif ekleme
 export const addRecipe = async (recipeData) => {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return null;
-    
-    const newRecipe = {
-      id: Date.now().toString(),
-      ...recipeData,
-      userId: user.email,
-      createdAt: new Date().toISOString(),
-    };
-    
-    mockRecipes.unshift(newRecipe);
-    await AsyncStorage.setItem(RECIPES_KEY, JSON.stringify(mockRecipes));
-    return newRecipe;
-  } catch (error) {
-    console.error('Tarif eklenirken hata:', error);
-    return null;
-  }
+    try {
+        const user = auth().currentUser;
+        if (!user) throw new Error('Kullanıcı giriş yapmamış');
+
+        const recipe = {
+            ...recipeData,
+            userId: user.uid,
+            createdAt: firestore.FieldValue.serverTimestamp(),
+            favorites: [],
+            ratings: {}
+        };
+
+        const docRef = await firestore().collection('recipes').add(recipe);
+        return { success: true, recipeId: docRef.id };
+    } catch (error) {
+        console.error('Tarif eklenirken hata:', error);
+        return { success: false, error: error.message };
+    }
 };
 
-// Kullanıcının Tarifleri
+// Kullanıcının tariflerini getirme
 export const getUserRecipes = async () => {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return [];
-    
-    return mockRecipes.filter(recipe => recipe.userId === user.email);
-  } catch (error) {
-    console.error('Kullanıcı tarifleri alınırken hata:', error);
-    return [];
-  }
+    try {
+        const user = auth().currentUser;
+        if (!user) throw new Error('Kullanıcı giriş yapmamış');
+
+        const snapshot = await firestore()
+            .collection('recipes')
+            .where('userId', '==', user.uid)
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+    } catch (error) {
+        console.error('Tarifler getirilirken hata:', error);
+        return [];
+    }
 };
 
-// Tüm Tarifler
+// Tüm tarifleri getirme
 export const getAllRecipes = async () => {
-  try {
-    return mockRecipes;
-  } catch (error) {
-    console.error('Tüm tarifler alınırken hata:', error);
-    return [];
-  }
+    try {
+        const snapshot = await firestore()
+            .collection('recipes')
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+    } catch (error) {
+        console.error('Tarifler getirilirken hata:', error);
+        return [];
+    }
 };
 
-// Favori İşlemleri
+// Tarifi favorilere ekleme/çıkarma
 export const toggleFavorite = async (recipeId) => {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return false;
-    
-    const userId = user.email;
-    
-    if (!mockFavorites[userId]) {
-      mockFavorites[userId] = [];
+    try {
+        const user = auth().currentUser;
+        if (!user) throw new Error('Kullanıcı giriş yapmamış');
+
+        const recipeRef = firestore().collection('recipes').doc(recipeId);
+        const doc = await recipeRef.get();
+        
+        if (!doc.exists) throw new Error('Tarif bulunamadı');
+        
+        const recipe = doc.data();
+        const favorites = recipe.favorites || [];
+        const isFavorited = favorites.includes(user.uid);
+
+        if (isFavorited) {
+            await recipeRef.update({
+                favorites: firestore.FieldValue.arrayRemove(user.uid)
+            });
+        } else {
+            await recipeRef.update({
+                favorites: firestore.FieldValue.arrayUnion(user.uid)
+            });
+        }
+
+        return { success: true, isFavorited: !isFavorited };
+    } catch (error) {
+        console.error('Favori işlemi sırasında hata:', error);
+        return { success: false, error: error.message };
     }
-    
-    const index = mockFavorites[userId].indexOf(recipeId);
-    
-    if (index > -1) {
-      // Zaten favorilerdeyse kaldır
-      mockFavorites[userId].splice(index, 1);
-      await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(mockFavorites));
-      return false;
-    } else {
-      // Favorilerde değilse ekle
-      mockFavorites[userId].push(recipeId);
-      await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(mockFavorites));
-      return true;
-    }
-  } catch (error) {
-    console.error('Favori işlemi sırasında hata:', error);
-    return false;
-  }
 };
 
-// Favori Tarifleri Getir
+// Favori tarifleri getirme
 export const getFavoriteRecipes = async () => {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return [];
-    
-    const userId = user.email;
-    
-    if (!mockFavorites[userId]) {
-      return [];
+    try {
+        const user = auth().currentUser;
+        if (!user) throw new Error('Kullanıcı giriş yapmamış');
+
+        const snapshot = await firestore()
+            .collection('recipes')
+            .where('favorites', 'array-contains', user.uid)
+            .get();
+
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+    } catch (error) {
+        console.error('Favori tarifler getirilirken hata:', error);
+        return [];
     }
-    
-    const favoriteIds = mockFavorites[userId];
-    return mockRecipes.filter(recipe => favoriteIds.includes(recipe.id));
-  } catch (error) {
-    console.error('Favori tarifleri alırken hata:', error);
-    return [];
-  }
 };
 
-// Yıldız Verme İşlemleri
+// Tarife puan verme
 export const rateRecipe = async (recipeId, rating) => {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return false;
-    
-    const userId = user.email;
-    
-    if (!mockRatings[userId]) {
-      mockRatings[userId] = {};
+    try {
+        const user = auth().currentUser;
+        if (!user) throw new Error('Kullanıcı giriş yapmamış');
+
+        const recipeRef = firestore().collection('recipes').doc(recipeId);
+        await recipeRef.update({
+            [`ratings.${user.uid}`]: rating
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Puan verme işlemi sırasında hata:', error);
+        return { success: false, error: error.message };
     }
-    
-    mockRatings[userId][recipeId] = rating;
-    await AsyncStorage.setItem(RATINGS_KEY, JSON.stringify(mockRatings));
-    return true;
-  } catch (error) {
-    console.error('Yıldız verirken hata:', error);
-    return false;
-  }
 };
 
-// Kullanıcının Verdiği Yıldızı Getir
+// Kullanıcının verdiği puanı getirme
 export const getUserRating = async (recipeId) => {
-  try {
-    const user = await getCurrentUser();
-    if (!user) return 0;
-    
-    const userId = user.email;
-    
-    if (!mockRatings[userId] || !mockRatings[userId][recipeId]) {
-      return 0;
+    try {
+        const user = auth().currentUser;
+        if (!user) return null;
+
+        const doc = await firestore()
+            .collection('recipes')
+            .doc(recipeId)
+            .get();
+
+        if (!doc.exists) return null;
+
+        const recipe = doc.data();
+        return recipe.ratings?.[user.uid] || null;
+    } catch (error) {
+        console.error('Kullanıcı puanı getirilirken hata:', error);
+        return null;
     }
-    
-    return mockRatings[userId][recipeId];
-  } catch (error) {
-    console.error('Kullanıcı yıldızı alınırken hata:', error);
-    return 0;
-  }
 }; 
