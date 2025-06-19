@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, StatusBar, Alert } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
@@ -81,6 +82,24 @@ const HomeScreen = ({ navigation }) => {
             'Bu özellik henüz geliştirilme aşamasındadır.',
             [{ text: 'Tamam', style: 'default' }]
         );
+=======
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, StatusBar } from 'react-native';
+import { useAuth } from '../contexts/AuthContext';
+
+const HomeScreen = ({ navigation }) => {
+    const { user, signOut } = useAuth();
+
+    const handleSignOut = async () => {
+        try {
+            const success = await signOut();
+            if (!success) {
+                console.error('Çıkış yapılırken hata oluştu');
+            }
+        } catch (error) {
+            console.error('Çıkış yapılırken hata:', error);
+        }
+>>>>>>> 8950b8de1554e7bf1e4414870fee3cc5c14d6398
     };
 
     return (
@@ -89,7 +108,14 @@ const HomeScreen = ({ navigation }) => {
 
             {/* Üst Kısım (Koyu Kahverengi) */}
             <View style={styles.header}>
+<<<<<<< HEAD
                 <Text style={styles.headerText}>Yemek Tarif Uygulaması</Text>
+=======
+                <Text style={styles.headerText}>Ana Sayfa</Text>
+                <TouchableOpacity style={styles.logoutButton} onPress={handleSignOut}>
+                    <Text style={styles.logoutText}>Çıkış Yap</Text>
+                </TouchableOpacity>
+>>>>>>> 8950b8de1554e7bf1e4414870fee3cc5c14d6398
             </View>
             
             {/* Ana İçerik */}
@@ -118,12 +144,22 @@ const HomeScreen = ({ navigation }) => {
                     <Text style={styles.buttonText}>Favoriler</Text>
                 </TouchableOpacity>
 
+<<<<<<< HEAD
                 <TouchableOpacity 
                     style={styles.button} 
                     onPress={() => handleButtonPress('MyRecipes')}
                 >
                     <Text style={styles.buttonText}>Benim Tariflerim</Text>
                 </TouchableOpacity>
+=======
+            {/* Butonlar */}
+            <TouchableOpacity 
+                style={styles.button} 
+                onPress={() => navigation.navigate('RecipeList')}
+            >
+                <Text style={styles.buttonText}>Tarifleri Görüntüle</Text>
+            </TouchableOpacity>
+>>>>>>> 8950b8de1554e7bf1e4414870fee3cc5c14d6398
 
                 {/* Çıkış Butonu */}
                 <TouchableOpacity 
@@ -146,9 +182,10 @@ const styles = StyleSheet.create({
         width: '100%',
         height: 80,
         backgroundColor: '#5D4037',
-        justifyContent: 'center',
+        justifyContent: 'space-between',
         alignItems: 'center',
         paddingTop: 30,
+        paddingHorizontal: 20,
     },
     headerText: {
         fontSize: 22,
@@ -193,8 +230,19 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     logoutButton: {
+<<<<<<< HEAD
         backgroundColor: '#B71C1C',
         marginTop: 20,
+=======
+        backgroundColor: '#8D6E63',
+        padding: 8,
+        borderRadius: 8,
+    },
+    logoutText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '500',
+>>>>>>> 8950b8de1554e7bf1e4414870fee3cc5c14d6398
     },
 });
 

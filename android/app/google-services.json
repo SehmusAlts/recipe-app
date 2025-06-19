@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "197260341472",
+    "project_id": "reciepe-app-3282a",
+    "storage_bucket": "reciepe-app-3282a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:197260341472:android:6e84d8d932723d72d9e085",
+        "android_client_info": {
+          "package_name": "com.anonymous.MyReactNativeApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6QzEakVz81sdp7z2s8NRBVEm9F1jgtYM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
