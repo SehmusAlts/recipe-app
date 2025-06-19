@@ -94,14 +94,43 @@ const RecipeDetailScreen = ({ route, navigation }) => {
                     {/* Yemek Adı */}
                     <Text style={styles.title}>{recipe.name}</Text>
 
+                    {/* Kategori */}
+                    {recipe.category && (
+                        <View style={styles.categoryContainer}>
+                            <Text style={styles.categoryLabel}>Kategori:</Text>
+                            <Text style={styles.categoryText}>{recipe.category}</Text>
+                        </View>
+                    )}
+
                     {/* Açıklama veya Tarif Adımları */}
+                    <Text style={styles.sectionTitle}>Açıklama</Text>
                     <Text style={styles.description}>
                         {recipe.description && recipe.description.trim().length > 0 
                             ? recipe.description 
                             : recipe.instructions 
                                 ? recipe.instructions.join("\n") 
-                                : ""}
+                                : "Açıklama mevcut değil."}
                     </Text>
+
+                    {/* Malzemeler (Özel tarifler için) */}
+                    {recipe.ingredients && recipe.ingredients.length > 0 && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Malzemeler</Text>
+                            {recipe.ingredients.map((ingredient, index) => (
+                                <Text key={index} style={styles.listItem}>• {ingredient}</Text>
+                            ))}
+                        </View>
+                    )}
+
+                    {/* Hazırlama Adımları (Özel tarifler için) */}
+                    {recipe.steps && recipe.steps.length > 0 && (
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Hazırlama Adımları</Text>
+                            {recipe.steps.map((step, index) => (
+                                <Text key={index} style={styles.listItem}>{index + 1}. {step}</Text>
+                            ))}
+                        </View>
+                    )}
 
                     {/* Yıldız Verme */}
                     <Text style={styles.ratingText}>Puan Ver: {rating} ⭐</Text>
@@ -201,10 +230,46 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     description: {
-        fontSize: 18,
+        fontSize: 16,
         color: '#333',
-        textAlign: 'center',
         marginBottom: 20,
+        textAlign: 'left',
+        alignSelf: 'stretch',
+    },
+    section: {
+        alignSelf: 'stretch',
+        marginBottom: 20,
+    },
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: '#5D4037',
+        alignSelf: 'stretch',
+    },
+    listItem: {
+        fontSize: 16,
+        marginBottom: 5,
+        paddingLeft: 10,
+    },
+    categoryContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    categoryLabel: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginRight: 5,
+        color: '#5D4037',
+    },
+    categoryText: {
+        fontSize: 16,
+        color: '#8D6E63',
+        backgroundColor: '#EFEFEF',
+        paddingHorizontal: 10,
+        paddingVertical: 3,
+        borderRadius: 15,
     },
     ratingText: {
         fontSize: 16,

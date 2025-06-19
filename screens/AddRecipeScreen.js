@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { recipes } from '../data/recipes';
 
 const AddRecipeScreen = ({ navigation }) => {
     const [name, setName] = useState('');
@@ -8,23 +9,43 @@ const AddRecipeScreen = ({ navigation }) => {
     const [category, setCategory] = useState('');
     const [showCategoryModal, setShowCategoryModal] = useState(false);
     const [allCategories, setAllCategories] = useState([
-        'Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack', 
-        'Appetizer', 'Side Dish', 'Beverage', 'Snacks'
+        'Kahvaltı', 'Ana Yemek', 'Tatlı', 'Çorba', 'Fast Food', 'Atıştırmalık', 'İçecek'
     ]);
+    const [ingredients, setIngredients] = useState('');
+    const [steps, setSteps] = useState('');
 
     useEffect(() => {
-        // Mevcut kategorileri AsyncStorage'dan alabilirsiniz
+        // Mevcut kategorileri dummy JSON ve AsyncStorage'dan al
         const fetchCategories = async () => {
             try {
+                // Dummy JSON'dan kategorileri al
+                const dummyCategories = [...new Set(recipes.map(recipe => recipe.category))];
+
+                // AsyncStorage'dan kategorileri al
                 const storedRecipes = await AsyncStorage.getItem('customRecipes');
+                let customCategories = [];
                 if (storedRecipes) {
-                    const recipes = JSON.parse(storedRecipes);
-                    const customCategories = [...new Set(recipes.map(recipe => recipe.category).filter(Boolean))];
-                    
-                    // Tanımlanmış kategorilerle birleştir
-                    const mergedCategories = [...new Set([...allCategories, ...customCategories])];
-                    setAllCategories(mergedCategories);
+                    const recipesArray = JSON.parse(storedRecipes);
+                    customCategories = [...new Set(recipesArray.map(recipe => recipe.category).filter(Boolean))];
                 }
+                
+                // Favorilerdeki kategorileri de al
+                const storedFavorites = await AsyncStorage.getItem('favorites');
+                let favoriteCategories = [];
+                if (storedFavorites) {
+                    const favoritesArray = JSON.parse(storedFavorites);
+                    favoriteCategories = [...new Set(favoritesArray.map(recipe => recipe.category).filter(Boolean))];
+                }
+
+                // Tüm kategorileri birleştir ve tekrarları kaldır
+                const mergedCategories = [...new Set([
+                    ...allCategories, 
+                    ...dummyCategories, 
+                    ...customCategories,
+                    ...favoriteCategories
+                ])];
+                
+                setAllCategories(mergedCategories.sort());
             } catch (error) {
                 console.log('Kategorileri alırken hata:', error);
             }
@@ -36,8 +57,10 @@ const AddRecipeScreen = ({ navigation }) => {
     const handleSaveRecipe = async () => {
         const trimmedName = name.trim();
         const trimmedDescription = description.trim();
+        const trimmedIngredients = ingredients.trim();
+        const trimmedSteps = steps.trim();
 
-        if (!trimmedName || !trimmedDescription || !category) {
+        if (!trimmedName || !trimmedDescription || !category || !trimmedIngredients || !trimmedSteps) {
             Alert.alert('Hata', 'Lütfen tüm alanları eksiksiz doldurun!');
             return;
         }
@@ -46,12 +69,26 @@ const AddRecipeScreen = ({ navigation }) => {
             let storedRecipes = await AsyncStorage.getItem('customRecipes');
             let recipesArray = storedRecipes ? JSON.parse(storedRecipes) : [];
 
+            // İçindekiler listesini diziye çevir
+            const ingredientsList = trimmedIngredients
+                .split('\n')
+                .map(item => item.trim())
+                .filter(item => item.length > 0);
+
+            // Adımları diziye çevir
+            const stepsList = trimmedSteps
+                .split('\n')
+                .map(item => item.trim())
+                .filter(item => item.length > 0);
+
             const newRecipe = {
                 id: Date.now(),
                 name: trimmedName,
                 description: trimmedDescription,
                 category: category,
                 image: 'https://via.placeholder.com/150', // Varsayılan resim
+                ingredients: ingredientsList,
+                steps: stepsList,
                 isCustom: true
             };
 
@@ -62,7 +99,9 @@ const AddRecipeScreen = ({ navigation }) => {
             setName('');
             setDescription('');
             setCategory('');
-            navigation.goBack();
+            setIngredients('');
+            setSteps('');
+            navigation.navigate('MyRecipes');
         } catch (error) {
             console.log('Tarif eklenirken hata oluştu:', error);
         }
@@ -106,7 +145,7 @@ const AddRecipeScreen = ({ navigation }) => {
     };
 
     return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container}>
             {/* Başlık ve Geri Butonu */}
             <View style={styles.header}>
                 <TouchableOpacity 
@@ -147,12 +186,32 @@ const AddRecipeScreen = ({ navigation }) => {
                 </Text>
             </TouchableOpacity>
             
+            {/* Malzemeler */}
+            <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Malzemeler (Her malzemeyi ayrı satıra yazın)"
+                value={ingredients}
+                onChangeText={setIngredients}
+                multiline
+                numberOfLines={6}
+            />
+            
+            {/* Hazırlama Adımları */}
+            <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Hazırlama Adımları (Her adımı ayrı satıra yazın)"
+                value={steps}
+                onChangeText={setSteps}
+                multiline
+                numberOfLines={6}
+            />
+            
             <TouchableOpacity style={styles.saveButton} onPress={handleSaveRecipe}>
                 <Text style={styles.saveButtonText}>Kaydet</Text>
             </TouchableOpacity>
             
             {renderCategoryModal()}
-        </View>
+        </ScrollView>
     );
 };
 
